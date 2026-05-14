@@ -22,25 +22,13 @@ export function getAgentBackend(): AgentBackend {
 
 export async function getAgentClient(): Promise<AgentClientInstance> {
   const requestedBackend = getRequestedAgentBackend();
-  if (cachedClient && cachedBackend === requestedBackend) {
-    return cachedClient;
-  }
-
-  if (cachedClient && cachedBackend !== requestedBackend) {
-    cachedClient.stopServerSync();
-    cachedClient = null;
-    cachedBackend = null;
-  }
-
-  if (requestedBackend === "local-llama") {
-    const module = await import("./localLlamaAgentClient");
-    cachedClient = module.createLocalLlamaAgentClient();
-    cachedBackend = "local-llama";
+  if (cachedClient) {
+    cachedBackend = requestedBackend;
     return cachedClient;
   }
 
   const module = await import("./pi-sdk");
   cachedClient = module.getPiClient();
-  cachedBackend = "pi";
+  cachedBackend = requestedBackend;
   return cachedClient;
 }

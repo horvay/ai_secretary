@@ -20,8 +20,17 @@ function normalizeDecision(value: unknown): AriVoiceDecisionValue | null {
   return null;
 }
 
+function extractRawJsonObject(text: string): string {
+  const withoutThink = text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  if (withoutThink.startsWith("```")) return withoutThink;
+  const start = withoutThink.indexOf("{");
+  const end = withoutThink.lastIndexOf("}");
+  if (start >= 0 && end > start) return withoutThink.slice(start, end + 1);
+  return withoutThink;
+}
+
 export function parseAriVoiceDecision(text: string): ParsedAriVoiceDecision {
-  const trimmed = text.trim();
+  const trimmed = extractRawJsonObject(text);
   const parsed = JSON.parse(trimmed) as unknown;
 
   if (!parsed || typeof parsed !== "object") {

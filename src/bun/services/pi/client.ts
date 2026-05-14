@@ -1,3 +1,4 @@
+import { spawn } from "bun";
 import { existsSync } from "fs";
 import { mkdir, readFile, stat, truncate, writeFile } from "fs/promises";
 import path from "path";
@@ -44,6 +45,8 @@ interface PiState {
   currentAssistantText: string;
   lastMessageTextByKey: Map<string, string>;
   playwrightMcp: McpClientState | null;
+  localLlamaProc: ReturnType<typeof spawn> | null;
+  localLlamaBaseUrl: string | null;
 }
 
 const PI_SESSION_ID_KEY = "pi.sessionId";
@@ -51,6 +54,14 @@ const PI_SESSION_FILE_KEY = "pi.sessionFile";
 const PI_DEFAULT_MODEL_KEY = "pi.defaultModel";
 const PI_THINKING_LEVEL_KEY = "pi.thinkingLevel";
 const FALLBACK_PI_MODEL: AgentModelSelection = { providerID: "opencode", modelID: "big-pickle" };
+const LOCAL_LLAMA_PROVIDER = "local-llama";
+const DEFAULT_LLAMA_SERVER = "vendor/atomic-llama-cpp-turboquant/build-cuda/bin/llama-server";
+const DEFAULT_LOCAL_MODEL = "models/Negentropy-claude-opus-4.7-9B-Q5_K_M.gguf";
+const DEFAULT_MM_PROJ = "models/Negentropy_mmproj.gguf";
+
+function pickLocalLlamaPort() {
+  return 21000 + Math.floor(Math.random() * 20000);
+}
 
 function createPiClient(): AgentClientInstance {
   const state: PiState = {
@@ -69,6 +80,8 @@ function createPiClient(): AgentClientInstance {
     currentAssistantText: "",
     lastMessageTextByKey: new Map(),
     playwrightMcp: null,
+    localLlamaProc: null,
+    localLlamaBaseUrl: null,
   };
 
   function emit(event: AgentEvent): void {
@@ -555,6 +568,103 @@ function createPiClient(): AgentClientInstance {
     return `# Active companion pack\n\n- id: ${pack.manifest.id}\n- name: ${pack.manifest.name}\n- default state: ${pack.manifest.sprites.defaultStatus}\n- allowed companion states/statuses: ${states || "(none)"}\n- allowed [anim:*] markers: ${anims || "(none)"}\n- pack-supported capabilities: ${packEnabledCapabilities.join(", ") || "(none)"}\n- currently available tools/capabilities: ${runtimeEnabledTools.join(", ") || "(none)"}\n- currently unavailable tools/capabilities: ${runtimeDisabledTools.join(", ") || "(none)"}\n\nUse the companion_set_state tool for persistent companion state/status changes. Do not emit [state:*] markers. Only emit [anim:*] markers declared by the active companion pack. Only use tools and behaviors listed as currently available.${websearchInstruction}`;
   }
 
+  async function waitForLocalLlama(baseUrl: string, proc: ReturnType<typeof spawn>, timeoutMs: number) {
+    const started = Date.now();
+    let lastError = "";
+    while (Date.now() - started < timeoutMs) {
+      if (proc.exitCode !== null) throw new Error(`llama-server exited early with code ${proc.exitCode}`);
+      try {
+        const response = await fetch(`${baseUrl}/health`);
+        if (response.ok) return;
+        lastError = `${response.status} ${response.statusText}`;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`Timed out waiting for local llama-server at ${baseUrl}: ${lastError}`);
+  }
+
+  async function ensureLocalLlamaServer() {
+    if (state.localLlamaProc && state.localLlamaBaseUrl) return state.localLlamaBaseUrl;
+
+    const host = "127.0.0.1";
+    const port = pickLocalLlamaPort();
+    const baseUrl = `http://${host}:${port}`;
+    const serverPath = path.resolve(process.env.AI_SECRETARY_LLAMA_SERVER_PATH ?? DEFAULT_LLAMA_SERVER);
+    const modelPath = path.resolve(process.env.AI_SECRETARY_LOCAL_MODEL_PATH ?? DEFAULT_LOCAL_MODEL);
+    const mmprojPath = path.resolve(process.env.AI_SECRETARY_LOCAL_MMPROJ_PATH ?? DEFAULT_MM_PROJ);
+    if (!existsSync(serverPath)) throw new Error(`llama-server not found: ${serverPath}`);
+    if (!existsSync(modelPath)) throw new Error(`local model not found: ${modelPath}`);
+
+    const contextSize = Number(getSetting("localModel.contextSize"));
+    const args = [
+      "--model", modelPath,
+      "--host", host,
+      "--port", String(port),
+      "--ctx-size", String(contextSize),
+      "--parallel", "1",
+      "--temp", "0",
+      "--seed", "42",
+      "--jinja",
+      "--reasoning", "off",
+      "--reasoning-format", "none",
+      ...(existsSync(mmprojPath) ? ["--mmproj", mmprojPath] : []),
+      "--n-gpu-layers", "auto",
+    ];
+
+    logInfo(`[pi-local-llama] Starting ${serverPath} ${args.join(" ")}`);
+    const proc = spawn([serverPath, ...args], { stdout: "pipe", stderr: "pipe", env: process.env });
+    state.localLlamaProc = proc;
+    state.localLlamaBaseUrl = baseUrl;
+
+    void (async () => {
+      for await (const chunk of proc.stderr) {
+        const text = new TextDecoder().decode(chunk).trimEnd();
+        if (text) console.log(`[pi-local-llama stderr] ${text}`);
+      }
+    })();
+    void (async () => {
+      for await (const chunk of proc.stdout) {
+        const text = new TextDecoder().decode(chunk).trimEnd();
+        if (text) console.log(`[pi-local-llama stdout] ${text}`);
+      }
+    })();
+
+    await waitForLocalLlama(baseUrl, proc, 120_000);
+    return baseUrl;
+  }
+
+  async function writeLocalLlamaModelConfig(modelsPath: string, baseUrl: string): Promise<AgentModelSelection> {
+    const modelID = path.basename(path.resolve(process.env.AI_SECRETARY_LOCAL_MODEL_PATH ?? DEFAULT_LOCAL_MODEL));
+    let existing: any = { providers: {} };
+    if (existsSync(modelsPath)) {
+      try {
+        existing = JSON.parse(await readFile(modelsPath, "utf8"));
+      } catch {
+        existing = { providers: {} };
+      }
+    }
+    existing.providers ??= {};
+    existing.providers[LOCAL_LLAMA_PROVIDER] = {
+      baseUrl: `${baseUrl}/v1`,
+      api: "openai-completions",
+      apiKey: "local",
+      compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
+      models: [{
+        id: modelID,
+        name: "Local llama.cpp",
+        reasoning: false,
+        input: ["text", "image"],
+        contextWindow: Number(getSetting("localModel.contextSize")),
+        maxTokens: 4096,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+      }],
+    };
+    await writeFile(modelsPath, `${JSON.stringify(existing, null, 2)}\n`, { mode: 0o644 });
+    return { providerID: LOCAL_LLAMA_PROVIDER, modelID };
+  }
+
   async function ensureLocalPiFiles(agentDir: string): Promise<void> {
     await mkdir(agentDir, { recursive: true });
 
@@ -726,15 +836,22 @@ function createPiClient(): AgentClientInstance {
     await mkdir(sessionDir, { recursive: true });
     await mkdir(workspaceDir, { recursive: true });
     await ensureLocalPiFiles(agentDir);
+    const localBackendRequested = getSetting("agent.backend") === "local-llama";
+    const registryModelsPath = localBackendRequested
+      ? path.join(piDir, "local-models.json")
+      : modelsPath;
+    const localModelSelection = localBackendRequested
+      ? await writeLocalLlamaModelConfig(registryModelsPath, await ensureLocalLlamaServer())
+      : null;
 
     const authStorage = pi.AuthStorage.create(authPath);
     seedLocalZenApiKey(authStorage);
-    const modelRegistry = pi.ModelRegistry.create(authStorage, modelsPath);
+    const modelRegistry = pi.ModelRegistry.create(authStorage, registryModelsPath);
     state.modelRegistry = modelRegistry;
     const packDefaultModel = activePack.manifest.model ?? FALLBACK_PI_MODEL;
-    const selectedModel = await resolveModel(modelRegistry, state.cachedDefaultModel ?? packDefaultModel);
+    const selectedModel = await resolveModel(modelRegistry, localModelSelection ?? state.cachedDefaultModel ?? packDefaultModel);
     if (!selectedModel) {
-      throw new Error("Unable to find pi model opencode/big-pickle in the local model registry");
+      throw new Error("Unable to find selected model in the local model registry");
     }
     const ariPersona = await loadPackPersona();
     const packContext = buildPackContext(activePack);
@@ -936,6 +1053,9 @@ function createPiClient(): AgentClientInstance {
       state.unsubscribe?.();
       state.session?.dispose?.();
       await disconnectPlaywrightMcp();
+      state.localLlamaProc?.kill("SIGKILL");
+      state.localLlamaProc = null;
+      state.localLlamaBaseUrl = null;
       state.unsubscribe = null;
       state.session = null;
       state.modelRegistry = null;
@@ -946,6 +1066,9 @@ function createPiClient(): AgentClientInstance {
       state.unsubscribe?.();
       state.session?.dispose?.();
       void disconnectPlaywrightMcp();
+      state.localLlamaProc?.kill("SIGKILL");
+      state.localLlamaProc = null;
+      state.localLlamaBaseUrl = null;
       state.unsubscribe = null;
       state.session = null;
       state.modelRegistry = null;

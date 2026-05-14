@@ -1,9 +1,12 @@
 import { spawn } from "bun";
 import { existsSync } from "fs";
+import { readFile } from "fs/promises";
 import path from "path";
 import type { AgentClientInstance, AgentQuery, AgentResponse, AgentModelSelection } from "./agent/types";
 import { getAppState } from "./app-state";
 import type { AgentEventCallback } from "../state/appState";
+import { getActiveCompanionPack, readActiveCompanionPersona, resolvePackRelativePath, type CompanionPack } from "./companion-packs";
+import { getAppResourcesDir } from "../utils/paths";
 
 const DEFAULT_LLAMA_SERVER = "vendor/atomic-llama-cpp-turboquant/build-cuda/bin/llama-server";
 const DEFAULT_LOCAL_MODEL = "models/Negentropy-claude-opus-4.7-9B-Q5_K_M.gguf";
@@ -103,6 +106,36 @@ async function waitForServer(baseUrl: string, proc: ReturnType<typeof spawn>, ti
   throw new Error(`Timed out waiting for local llama-server at ${baseUrl}: ${lastError}`);
 }
 
+function buildPackContext(pack: CompanionPack) {
+  const states = pack.manifest.markers.states.join(", ");
+  const anims = pack.manifest.markers.animations.join(", ");
+  const capabilities = Object.entries(pack.manifest.capabilities);
+  const packEnabledCapabilities = capabilities.filter(([, enabled]) => enabled).map(([key]) => key);
+  const packDisabledCapabilities = capabilities.filter(([, enabled]) => !enabled).map(([key]) => key);
+
+  return `# Active companion pack\n\n- id: ${pack.manifest.id}\n- name: ${pack.manifest.name}\n- default state: ${pack.manifest.sprites.defaultStatus}\n- allowed companion states/statuses: ${states || "(none)"}\n- allowed [anim:*] markers: ${anims || "(none)"}\n- pack-supported capabilities: ${packEnabledCapabilities.join(", ") || "(none)"}\n- unavailable tool/capability hints: ${packDisabledCapabilities.join(", ") || "(none)"}\n\nYou do not have tool-calling in local llama mode. If a durable tool action is needed, say briefly that local mode cannot use tools yet. Do not pretend to create reminders, routines, tasks, lists, browser actions, screenshots, or memory writes. Use only [anim:*] markers declared by the active companion pack.`;
+}
+
+async function buildLocalSystemPrompt() {
+  const [globalInstructions, activePack] = await Promise.all([
+    readFile(path.join(getAppResourcesDir(), "AGENTS.md"), "utf8"),
+    getActiveCompanionPack(),
+  ]);
+  const persona = await readActiveCompanionPersona().catch(() => "");
+  let packExtra = "";
+  if (activePack.manifest.agentsFile) {
+    packExtra = await readFile(resolvePackRelativePath(activePack, activePack.manifest.agentsFile), "utf8").catch(() => "");
+  }
+
+  return [
+    globalInstructions,
+    persona,
+    packExtra,
+    buildPackContext(activePack),
+    "# Local llama response contract\n\nFor normal chat, reply as the active companion in plain text. Never output JSON unless the user prompt explicitly contains [VoiceMode: ari-decides-json-only]. For voice-router prompts, output only the requested raw JSON object and put the in-character secretary reply in the speech field.",
+  ].filter((part) => part.trim().length > 0).join("\n\n");
+}
+
 export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOptions = {}): AgentClientInstance {
   const host = options.host ?? "127.0.0.1";
   const port = options.port ?? pickPort();
@@ -121,6 +154,7 @@ export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOption
   const messages: Array<{ role: "user" | "assistant"; content: string }> = [];
   const visibleMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
   const callbacks = new Set<AgentEventCallback>();
+  let systemPromptCache: string | null = null;
 
   function emit(event: Parameters<AgentEventCallback>[0]) {
     for (const callback of callbacks) callback(event);
@@ -187,10 +221,19 @@ export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOption
     proc = null;
   }
 
+  async function getSystemPrompt() {
+    systemPromptCache ??= await buildLocalSystemPrompt();
+    return systemPromptCache;
+  }
+
   async function query(params: AgentQuery, options?: { signal?: AbortSignal; ephemeral?: boolean }): Promise<AgentResponse> {
     await startServer();
     emit({ type: "processing", message: "Local model processing..." });
     const wantsRawVoiceJson = params.query.includes("[VoiceMode: ari-decides-json-only]");
+    const appSystemPrompt = await getSystemPrompt();
+    const systemContent = wantsRawVoiceJson
+      ? `${appSystemPrompt}\n\nYou are handling an ari-decides voice-router turn. Output only one raw JSON object matching this shape: {"decision":"respond","confidence":0.95,"reason":"...","speech":"..."}. Never use markdown. Put the actual in-character secretary answer in speech.`
+      : appSystemPrompt;
 
     let content = "";
     const completionTokenBudget = reasoning === "off"
@@ -209,10 +252,7 @@ export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOption
           max_tokens: Math.max(completionTokenBudget, 768),
           stream: false,
           messages: [
-            {
-              role: "system",
-              content: "You are a strict JSON voice router and screenshot-aware final voice responder. Inspect the image if present. Output only one raw JSON object matching this shape: {\"decision\":\"respond\",\"confidence\":0.95,\"reason\":\"...\",\"speech\":\"...\"}. Never use markdown. Keep reasoning brief and put the actual answer in speech.",
-            },
+            { role: "system", content: systemContent },
             ...messages.map((message) => ({ role: message.role, content: message.content })),
             {
               role: "user",
@@ -244,10 +284,7 @@ export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOption
           stream: false,
           response_format: wantsRawVoiceJson ? { type: "json_object" } : undefined,
           messages: [
-            {
-              role: "system",
-              content: "You are a strict JSON voice router. Output only one raw JSON object matching this shape: {\"decision\":\"respond\",\"confidence\":0.95,\"reason\":\"...\",\"speech\":\"...\"}. Never use markdown. Put the actual answer in speech.",
-            },
+            { role: "system", content: systemContent },
             ...messages.map((message) => ({ role: message.role, content: message.content })),
             { role: "user", content: params.query },
           ],
@@ -312,7 +349,10 @@ export function createLocalLlamaAgentClient(options: LocalLlamaAgentClientOption
     },
     checkServer: async () => proc !== null,
     getOrCreateSessionId: async () => "local-llama-session",
-    clearSession,
+    clearSession: async () => {
+      systemPromptCache = null;
+      return clearSession();
+    },
     getSessionMessages: async (_sessionID?: string, limit?: number) => {
       const selected = typeof limit === "number" ? visibleMessages.slice(-limit) : visibleMessages;
       return selected.map((message, index) => ({ 
