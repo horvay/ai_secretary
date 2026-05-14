@@ -113,6 +113,8 @@ export function createUnifiedSettingsModal(
   const closeButton = element.querySelector(".modal-close") as HTMLButtonElement;
   const tabButtons = element.querySelectorAll(".tab-button") as NodeListOf<HTMLButtonElement>;
   const tabContents = element.querySelectorAll(".tab-content") as NodeListOf<HTMLElement>;
+  const settingsSectionSelect = element.querySelector("#settings-section-select") as HTMLSelectElement | null;
+  const settingsSections = element.querySelectorAll(".settings-section") as NodeListOf<HTMLElement>;
 
   // Settings tab elements - Custom dropdown
   const reminderDropdown = element.querySelector("#settings-reminder-dropdown") as HTMLDivElement;
@@ -151,6 +153,7 @@ export function createUnifiedSettingsModal(
   const playOverrideBtn = element.querySelector("#settings-play-override") as HTMLButtonElement;
 
   // Agent elements
+  const agentGroup = element.querySelector(".settings-agent-group") as HTMLElement | null;
   const agentProviderSelect = element.querySelector("#settings-agent-provider") as HTMLSelectElement;
   const agentModelSelect = element.querySelector("#settings-agent-model") as HTMLSelectElement;
   const agentAuthMethodSelect = element.querySelector("#settings-agent-auth-method") as HTMLSelectElement;
@@ -238,6 +241,16 @@ export function createUnifiedSettingsModal(
   // Barge-in settings state
   let bargeInEnabled = true;
   let bargeInThreshold = 5;
+
+  function switchSettingsSection(sectionName: string): void {
+    settingsSections.forEach((section) => {
+      section.classList.toggle("active", section.dataset.settingsSection === sectionName);
+    });
+  }
+
+  settingsSectionSelect?.addEventListener("change", () => {
+    switchSettingsSection(settingsSectionSelect.value);
+  });
 
   function collectMemorySettings(): MemorySettingsState {
     return {
@@ -470,18 +483,21 @@ export function createUnifiedSettingsModal(
     const list = agentProviders?.all ?? [];
     const connected = new Set(agentProviders?.connected ?? []);
     const usable = list.filter((provider) => connected.has(provider.id));
-    const sorted = [...usable].sort((a, b) => a.name.localeCompare(b.name));
+    const hasLocal = usable.some((provider) => provider.id === "local-llama");
+    const localProvider = { id: "local-llama", name: "Local llama.cpp", models: { local: { id: "local", name: "Local configured model" } } };
+    const sorted = [...usable, ...(hasLocal ? [] : [localProvider])].sort((a, b) => a.name.localeCompare(b.name));
 
     for (const p of sorted) {
       const option = document.createElement("option");
       option.value = p.id;
-      option.textContent = `${p.name} (connected)`;
+      option.textContent = p.id === "local-llama" ? p.name : `${p.name} (connected)`;
       agentProviderSelect.appendChild(option);
     }
 
     const fallbackProviderID =
       (preferProviderID && connected.has(preferProviderID) ? preferProviderID : undefined) ??
       (agentProviders?.default?.opencode && connected.has("opencode") ? "opencode" : undefined) ??
+      sorted.find((provider) => provider.id !== "local-llama")?.id ??
       sorted[0]?.id;
 
     if (fallbackProviderID) {
@@ -496,7 +512,9 @@ export function createUnifiedSettingsModal(
     clearSelect(agentModelSelect);
 
     const provider = (agentProviders?.all ?? []).find((p) => p.id === providerID);
-    const models = provider?.models ?? {};
+    const models = providerID === "local-llama" && !provider
+      ? { local: { id: "local", name: "Local configured model" } }
+      : (provider?.models ?? {});
     const modelList = Object.values(models).sort((a, b) => a.name.localeCompare(b.name));
 
     for (const m of modelList) {
@@ -518,7 +536,7 @@ export function createUnifiedSettingsModal(
     if (!agentAuthMethodSelect) return;
     clearSelect(agentAuthMethodSelect);
 
-    const methods = agentAuthMethods[providerID] ?? [];
+    const methods = providerID === "local-llama" ? [] : (agentAuthMethods[providerID] ?? []);
     for (let i = 0; i < methods.length; i++) {
       const m = methods[i];
       const option = document.createElement("option");
@@ -528,6 +546,12 @@ export function createUnifiedSettingsModal(
     }
 
     agentAuthMethodDropdown?.refresh();
+  }
+
+  function updateAgentProviderMode(providerID: string): void {
+    const isLocal = providerID === "local-llama";
+    agentGroup?.classList.toggle("local-provider", isLocal);
+    agentGroup?.classList.toggle("remote-provider", !isLocal);
   }
 
   async function refreshAgentUI(): Promise<void> {
@@ -559,6 +583,7 @@ export function createUnifiedSettingsModal(
       if (providerID) {
         renderAgentModelOptions(providerID, sessionModel);
         renderAgentAuthMethodOptions(providerID);
+        updateAgentProviderMode(providerID);
       }
 
       const hiddenProviderCount = Math.max(0, (agentProviders.all?.length ?? 0) - (agentProviders.connected?.length ?? 0));
@@ -816,6 +841,7 @@ export function createUnifiedSettingsModal(
     const providerID = agentProviderSelect.value;
     renderAgentModelOptions(providerID);
     renderAgentAuthMethodOptions(providerID);
+    updateAgentProviderMode(providerID);
     setAgentStatus(`Session: ${agentSessionID ?? "unknown"} • Model: ${providerID}/${agentModelSelect?.value ?? "?"}`);
 
     const modelID = agentModelSelect?.value;

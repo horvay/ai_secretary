@@ -27,6 +27,8 @@ const isGBrainWriteMode = (value: unknown): value is "off" | "propose" | "auto" 
   value === "off" || value === "propose" || value === "auto";
 const isLocalReasoningMode = (value: unknown): value is "on" | "off" | "auto" =>
   value === "on" || value === "off" || value === "auto";
+const isAgentBackend = (value: unknown): value is "pi" | "local-llama" =>
+  value === "pi" || value === "local-llama";
 const isPositiveInteger = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
@@ -48,6 +50,7 @@ export const appStateDefinitions = {
   "pi.sessionFile": { defaultValue: "", validate: isString },
   "pi.defaultModel": { defaultValue: "", validate: isString },
   "pi.thinkingLevel": { defaultValue: "", validate: isString },
+  "agent.backend": { defaultValue: "pi", validate: isAgentBackend },
   "privacy.redactedTerms": { defaultValue: [], validate: isStringArray },
   "voice.microphoneSendToAi": { defaultValue: true, validate: isBoolean },
   "audioTranscripts.speaker.enabled": { defaultValue: false, validate: isBoolean },

@@ -182,8 +182,20 @@
             </div>
             <div class="modal-content">
                 <div class="tab-content active" id="tab-settings">
-                    <div class="settings-panel">
-                        <div class="settings-group settings-group-compact">
+                    <div class="settings-panel settings-panel-sectioned">
+                        <div class="settings-section-picker">
+                            <label for="settings-section-select">Settings section</label>
+                            <select id="settings-section-select" class="settings-select">
+                                <option value="companion">Companion overlay</option>
+                                <option value="reminders">Reminders</option>
+                                <option value="memory">Memory & Privacy</option>
+                                <option value="pack">Companion Pack</option>
+                                <option value="overrides">One-shot Overrides</option>
+                                <option value="agent">Agent</option>
+                                <option value="interaction">Interaction</option>
+                            </select>
+                        </div>
+                        <div class="settings-group settings-group-compact settings-section active" data-settings-section="companion">
                             <h3>🖥️ Companion overlay</h3>
                             <div class="setting-field">
                                 <label for="settings-companion-monitor">Monitor</label>
@@ -200,7 +212,7 @@
                             </div>
                             <p class="setting-hint">Saved locally and applied every time Ari starts.</p>
                         </div>
-                        <div class="settings-group settings-group-compact">
+                        <div class="settings-group settings-group-compact settings-section" data-settings-section="reminders">
                             <h3>⏰ Reminders</h3>
                             <div class="setting-field">
                                 <label>Check interval</label>
@@ -221,7 +233,7 @@
                             </div>
                             <p class="setting-hint">How often Ari checks for pending routines and reminders.</p>
                         </div>
-                        <div class="settings-group settings-group-compact">
+                        <div class="settings-group settings-group-compact settings-section" data-settings-section="memory">
                             <h3>🧠 Memory & Privacy</h3>
                             <div class="setting-row setting-row-compact setting-row-with-copy">
                                 <div>
@@ -287,7 +299,7 @@
                                 <button id="settings-memory-save" class="setting-btn secondary">💾 Save memory settings</button>
                             </div>
                         </div>
-                        <div class="settings-group settings-group-compact">
+                        <div class="settings-group settings-group-compact settings-section" data-settings-section="pack">
                             <h3>🧳 Companion Pack</h3>
                             <div class="setting-field">
                                 <label for="settings-companion-pack">Active pack</label>
@@ -305,7 +317,7 @@
                                 <li>Custom project packs live in <code>packs/&lt;pack-id&gt;/</code>.</li>
                             </ul>
                         </div>
-                        <div class="settings-group settings-group-compact">
+                        <div class="settings-group settings-group-compact settings-section" data-settings-section="overrides">
                             <h3>🎭 One-shot Overrides</h3>
                             <p class="setting-hint">Ari can always trigger declared one-shot animations during chat. Manual preview is available below.</p>
                             <div class="setting-field setting-field-separated">
@@ -320,7 +332,7 @@
                                 <p class="setting-hint">Use the active pack’s <code>assets/sprites/one-time/&lt;key&gt;/</code>. Folder names must match declared <code>[anim:key]</code> markers.</p>
                             </details>
                         </div>
-                        <div class="settings-group settings-group-compact settings-agent-group">
+                        <div class="settings-group settings-group-compact settings-agent-group settings-section" data-settings-section="agent">
                             <h3>🧠 Agent</h3>
                             <div class="settings-agent-field-grid">
                                 <div class="setting-field">
@@ -331,7 +343,7 @@
                                     <label for="settings-agent-model">Model</label>
                                     <select id="settings-agent-model" class="settings-select"></select>
                                 </div>
-                                <div class="setting-field">
+                                <div class="setting-field settings-agent-remote-only">
                                     <label for="settings-thinking-dropdown">Thinking level</label>
                                     <div class="custom-dropdown" id="settings-thinking-dropdown">
                                         <button class="dropdown-toggle" type="button">
@@ -348,23 +360,48 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="setting-field">
+                                <div class="setting-field settings-agent-remote-only">
                                     <label for="settings-agent-auth-method">Auth method</label>
                                     <select id="settings-agent-auth-method" class="settings-select"></select>
                                 </div>
-                                <div class="setting-field settings-agent-api-field">
+                                <div class="setting-field settings-agent-api-field settings-agent-remote-only">
                                     <label for="settings-agent-api-key">API key</label>
                                     <input type="password" id="settings-agent-api-key" class="dropdown-toggle" style="cursor: text;" placeholder="Paste API key (if needed)" />
                                 </div>
                             </div>
-                            <div class="setting-action-grid">
+                            <div class="settings-agent-local-options">
+                                <div class="setting-row setting-row-compact setting-row-with-copy">
+                                    <div>
+                                        <label>Enable reasoning</label>
+                                        <p class="setting-hint">Use local model thinking for the JSON voice decision pass.</p>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" id="settings-local-reasoning-enabled" checked>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-field setting-field-separated">
+                                    <label for="settings-local-reasoning-budget">Reasoning token budget</label>
+                                    <input type="number" id="settings-local-reasoning-budget" class="dropdown-toggle" style="cursor: text;" min="1" max="8192" step="1" value="500" />
+                                    <p class="setting-hint">Default: 500. Applied next time the local llama.cpp test client starts.</p>
+                                </div>
+                                <div class="setting-field setting-field-separated">
+                                    <label for="settings-local-context-size">Context size</label>
+                                    <input type="number" id="settings-local-context-size" class="dropdown-toggle" style="cursor: text;" min="4096" max="262144" step="1024" value="65536" />
+                                    <p class="setting-hint">Default: 65536. Larger values use more VRAM.</p>
+                                </div>
+                                <div class="setting-actions">
+                                    <button id="settings-local-model-save" class="setting-btn secondary">💾 Save local model settings</button>
+                                </div>
+                            </div>
+                            <div class="setting-action-grid settings-agent-remote-only">
                                 <button id="settings-agent-save-key" class="setting-btn secondary">💾 Save API key</button>
                                 <button id="settings-agent-oauth-login" class="setting-btn primary">🔐 Login (OAuth)</button>
                                 <button id="settings-agent-refresh" class="setting-btn secondary">🔄 Refresh providers/models</button>
                                 <button id="settings-agent-clear-session" class="setting-btn secondary">🧹 Clear conversation (new session)</button>
                             </div>
                             <p class="setting-hint" id="settings-agent-status">Loading agent status…</p>
-                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated">
+                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated settings-agent-remote-only">
                                 <div>
                                     <label>Browser automation</label>
                                     <p class="setting-hint">Off by default. Turning this on downloads a managed Chromium binary for your platform so Ari can use Playwright browser tools.</p>
@@ -374,8 +411,8 @@
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                            <p class="setting-hint" id="settings-playwright-status">Browser automation is off.</p>
-                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated">
+                            <p class="setting-hint settings-agent-remote-only" id="settings-playwright-status">Browser automation is off.</p>
+                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated settings-agent-remote-only">
                                 <div>
                                     <label>Web search API</label>
                                     <p class="setting-hint">Off by default. Enable Firecrawl-powered web search/scrape tools for Ari and enter your Firecrawl API key.</p>
@@ -385,40 +422,14 @@
                                     <span class="toggle-slider"></span>
                                 </label>
                             </div>
-                            <div class="setting-field settings-firecrawl-api-field">
+                            <div class="setting-field settings-firecrawl-api-field settings-agent-remote-only">
                                 <label for="settings-firecrawl-api-key">Firecrawl API key</label>
                                 <input type="password" id="settings-firecrawl-api-key" class="settings-input" placeholder="fc-..." autocomplete="off">
                             </div>
-                            <button id="settings-firecrawl-save" class="setting-btn secondary">💾 Save Firecrawl settings</button>
-                            <p class="setting-hint" id="settings-firecrawl-status">Web search is off.</p>
+                            <button id="settings-firecrawl-save" class="setting-btn secondary settings-agent-remote-only">💾 Save Firecrawl settings</button>
+                            <p class="setting-hint settings-agent-remote-only" id="settings-firecrawl-status">Web search is off.</p>
                         </div>
-                        <div class="settings-group settings-group-compact">
-                            <h3>🦙 Local voice JSON model</h3>
-                            <div class="setting-row setting-row-compact setting-row-with-copy">
-                                <div>
-                                    <label>Enable reasoning</label>
-                                    <p class="setting-hint">Use local model thinking for the JSON voice decision pass.</p>
-                                </div>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="settings-local-reasoning-enabled" checked>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                            <div class="setting-field setting-field-separated">
-                                <label for="settings-local-reasoning-budget">Reasoning token budget</label>
-                                <input type="number" id="settings-local-reasoning-budget" class="dropdown-toggle" style="cursor: text;" min="1" max="8192" step="1" value="500" />
-                                <p class="setting-hint">Default: 500. Applied next time the local llama.cpp test client starts.</p>
-                            </div>
-                            <div class="setting-field setting-field-separated">
-                                <label for="settings-local-context-size">Context size</label>
-                                <input type="number" id="settings-local-context-size" class="dropdown-toggle" style="cursor: text;" min="4096" max="262144" step="1024" value="65536" />
-                                <p class="setting-hint">Default: 65536. Larger values use more VRAM.</p>
-                            </div>
-                            <div class="setting-actions">
-                                <button id="settings-local-model-save" class="setting-btn secondary">💾 Save local model settings</button>
-                            </div>
-                        </div>
-                        <div class="settings-group">
+                        <div class="settings-group settings-section" data-settings-section="interaction">
                             <h3>🎤 Interaction</h3>
                             <div class="setting-row setting-row-compact setting-row-with-copy">
                                 <div>

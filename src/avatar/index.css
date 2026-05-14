@@ -3013,6 +3013,39 @@ body.settings-modal-open #app {
   padding-bottom: 48px;
 }
 
+#settings-modal .settings-panel-sectioned {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding-bottom: 18px;
+}
+
+#settings-modal .settings-section-picker {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  padding: 2px 0 10px;
+  background: linear-gradient(180deg, oklch(16% 0.04 286 / 0.98), oklch(16% 0.04 286 / 0));
+}
+
+#settings-modal .settings-section-picker label {
+  color: oklch(76% 0.05 292);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+#settings-modal .settings-section {
+  display: none;
+}
+
+#settings-modal .settings-section.active {
+  display: grid;
+}
+
 #settings-modal .tab-content {
   scrollbar-color: oklch(68% 0.15 292 / 0.75) transparent;
   scrollbar-width: thin;
@@ -3059,6 +3092,23 @@ body.settings-modal-open #app {
 #settings-modal .setting-field { gap: 7px; }
 #settings-modal .settings-agent-group { gap: 13px; }
 #settings-modal .settings-agent-field-grid { gap: 10px 12px; }
+
+#settings-modal .settings-agent-local-options {
+  display: none;
+  gap: 14px;
+}
+
+#settings-modal .settings-agent-group.local-provider .settings-agent-remote-only {
+  display: none;
+}
+
+#settings-modal .settings-agent-group.local-provider .settings-agent-local-options {
+  display: grid;
+}
+
+#settings-modal .settings-agent-group.remote-provider .settings-agent-local-options {
+  display: none;
+}
 
 #settings-modal .settings-agent-group .dropdown-toggle,
 #settings-modal .settings-agent-group .settings-select {

@@ -126,6 +126,15 @@ export function createAgentSettingsHandlers({ getAgentClient }: AgentSettingsHan
     },
 
     agentSetSessionModel: async ({ sessionID, providerID, modelID }: { sessionID?: string; providerID: string; modelID: string }) => {
+      if (providerID === "local-llama") {
+        setAppState("agent.backend", "local-llama");
+        const client = await getAgentClient();
+        const sid = sessionID ?? (await client.getOrCreateSessionId());
+        logWarn(`[RPC] agentSetSessionModel: session=${sid} backend=local-llama`);
+        return { success: true, sessionID: sid, providerID, modelID };
+      }
+
+      setAppState("agent.backend", "pi");
       const client = await getAgentClient();
       const sid = sessionID ?? (await client.getOrCreateSessionId());
       logWarn(`[RPC] agentSetSessionModel: session=${sid} model=${providerID}/${modelID}`);

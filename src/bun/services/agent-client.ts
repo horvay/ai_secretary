@@ -1,6 +1,8 @@
 import type { AgentClientInstance } from "./agent/types";
+import { getSetting } from "./app-state";
 
 let cachedClient: AgentClientInstance | null = null;
+let cachedBackend: AgentBackend | null = null;
 
 type AgentBackend = "pi" | "local-llama";
 
@@ -11,7 +13,7 @@ function getRequestedAgentBackend(): AgentBackend {
   if (backendFlagIndex >= 0 && process.argv[backendFlagIndex + 1] === "local-llama") return "local-llama";
   if (process.argv.includes("--local-llama")) return "local-llama";
 
-  return "pi";
+  return getSetting("agent.backend");
 }
 
 export function getAgentBackend(): AgentBackend {
@@ -19,17 +21,26 @@ export function getAgentBackend(): AgentBackend {
 }
 
 export async function getAgentClient(): Promise<AgentClientInstance> {
-  if (cachedClient) {
+  const requestedBackend = getRequestedAgentBackend();
+  if (cachedClient && cachedBackend === requestedBackend) {
     return cachedClient;
   }
 
-  if (getRequestedAgentBackend() === "local-llama") {
+  if (cachedClient && cachedBackend !== requestedBackend) {
+    cachedClient.stopServerSync();
+    cachedClient = null;
+    cachedBackend = null;
+  }
+
+  if (requestedBackend === "local-llama") {
     const module = await import("./localLlamaAgentClient");
     cachedClient = module.createLocalLlamaAgentClient();
+    cachedBackend = "local-llama";
     return cachedClient;
   }
 
   const module = await import("./pi-sdk");
   cachedClient = module.getPiClient();
+  cachedBackend = "pi";
   return cachedClient;
 }
