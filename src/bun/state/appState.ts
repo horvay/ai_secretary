@@ -4,7 +4,7 @@
  */
 
 // Event types for streaming updates (mirrored from opencode-sdk for decoupling)
-export type AgentEventType = "tool_start" | "tool_end" | "processing" | "text_delta" | "thought_delta" | "complete" | "error";
+export type AgentEventType = "tool_start" | "tool_end" | "processing" | "text_delta" | "thought_delta" | "complete" | "error" | "avatar_status";
 
 export interface AgentEvent {
   type: AgentEventType;
@@ -22,6 +22,9 @@ export interface AgentEvent {
   args?: unknown;
   /** For tool_end events: tool result/output */
   result?: unknown;
+  /** For avatar_status events: active companion base sprite/status. */
+  status?: string;
+  reason?: string;
 }
 
 export type AgentEventCallback = (event: AgentEvent) => void;

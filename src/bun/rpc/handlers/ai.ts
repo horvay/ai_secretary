@@ -370,10 +370,6 @@ export function createAiHandlers({ piperTTS, getAgentClient, rpc, ttsMutex }: Ai
         }
 
         function tryTriggerOneShotOverride(key: string, source: string): void {
-          const raw = getAppState("avatarOverride.allowAi");
-          const allowAi = raw === "1" || raw === "true";
-          if (!allowAi) return;
-
           const now = Date.now();
           const last = lastAnimPlayAtByKey.get(key) ?? 0;
           if (now - last < ANIM_DEBOUNCE_MS) return;
@@ -778,6 +774,24 @@ export function createAiHandlers({ piperTTS, getAgentClient, rpc, ttsMutex }: Ai
                   args: event.args,
                   result: event.result,
                 }, "tool_end");
+                break;
+              }
+
+              case "avatar_status": {
+                const status = String(event.status ?? "").trim();
+                if (!status) break;
+                if (!allowedMarkers.states.has(status)) {
+                  logWarn(
+                    `[Ari] Ignoring undeclared companion state '${status}' from pack ${activeCompanionPack.manifest.id}`,
+                  );
+                  break;
+                }
+                try {
+                  setAppState("secretary.status", status);
+                } catch (error) {
+                  logWarn(`[Ari] Failed to persist secretary.status=${status}:`, error);
+                }
+                rpc.send.setAvatarStatus({ status });
                 break;
               }
 

@@ -109,6 +109,15 @@ export function stripSquareBracketSegments(text: string): string {
 }
 
 /**
+ * Strip markdown emphasis characters from assistant text.
+ * Ari should speak actions naturally instead of using *action* markdown; this
+ * minimum cleanup prevents asterisks from reaching display or TTS if the model slips.
+ */
+export function stripMarkdownEmphasis(text: string): string {
+  return text.replace(/\*/g, "");
+}
+
+/**
  * Check if a response should be silent (no TTS)
  * Checks for [NO_RESPONSE] at the start of trimmed text OR anywhere in the text
  * @param text - The response text to check
@@ -183,6 +192,7 @@ export function cleanResponseForDisplay(text: string): string {
   // Strip NO_RESPONSE prefix if present (the text should still be displayed without the prefix)
   cleaned = stripSilentPrefix(cleaned);
   cleaned = stripLooseAnimStateMarkers(stripAnimStateMarkerTokens(stripStateMarkers(stripAnimMarkers(cleaned))));
+  cleaned = stripMarkdownEmphasis(cleaned);
 
   // Trim leading whitespace/newlines that may remain after stripping tags/markers
   cleaned = cleaned.trimStart();
@@ -197,7 +207,7 @@ export function cleanResponseForDisplay(text: string): string {
 export function cleanDeltaForDisplay(delta: string): string {
   const noThink = removeThinkingTags(delta, true);
   const noSilent = stripSilentPrefix(noThink);
-  return stripLooseAnimStateMarkers(stripAnimStateMarkerTokens(stripStateMarkers(stripAnimMarkers(noSilent))));
+  return stripMarkdownEmphasis(stripLooseAnimStateMarkers(stripAnimStateMarkerTokens(stripStateMarkers(stripAnimMarkers(noSilent)))));
 }
 
 /**
@@ -212,7 +222,7 @@ export function cleanDeltaForTTS(delta: string): string {
   // - Square bracket segments are control/meta markers and should never be spoken.
   const noThink = removeThinkingTags(delta, true);
   const noMarkers = stripLooseAnimStateMarkers(stripAnimStateMarkerTokens(noThink));
-  return stripSquareBracketSegments(noMarkers);
+  return stripMarkdownEmphasis(stripSquareBracketSegments(noMarkers));
 }
 
 /**

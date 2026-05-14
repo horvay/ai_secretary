@@ -171,7 +171,9 @@ body.companion-collapsed #app {
 
 /* Avatar Container with subtle glow - fixed on right side */
 #avatar-container {
-  position: relative;
+  position: fixed;
+  right: 14px;
+  bottom: 10px;
   width: 238px;
   height: 346px;
   display: flex;

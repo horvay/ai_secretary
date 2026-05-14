@@ -473,9 +473,43 @@ function createPiClient(): AgentClientInstance {
       },
     ] as const;
 
-    const tools = toolConfigs
-      .filter(({ capability }) => isCompanionPackCapabilityEnabled(pack, capability))
-      .map(({ config }) => createResourceScriptTool(pi, workspaceDir, config));
+    const tools = [
+      pi.defineTool({
+        name: "companion_set_state",
+        label: "Set Companion State",
+        description: "Change the companion avatar's persistent base sprite/status. Use this when a persistent visual state change is clearly intended. The status must be one of the active companion pack's declared states; custom user packs may define their own status names.",
+        promptSnippet: `companion_set_state: Change the companion avatar's persistent base state/status. Allowed statuses for this pack: ${pack.manifest.markers.states.join(", ") || "(none)"}. Use this instead of emitting [state:*] markers.`,
+        parameters: Type.Object({
+          status: Type.String({ description: "The target persistent avatar status/state from the active companion pack's allowed states." }),
+          reason: Type.Optional(Type.String({ description: "Brief reason for the state change." })),
+        }),
+        async execute(_toolCallId: string, params: { status?: string; reason?: string }) {
+          const status = String(params.status ?? "").trim();
+          const allowedStates = new Set(pack.manifest.markers.states);
+          if (!status || !allowedStates.has(status)) {
+            return {
+              content: [{ type: "text", text: `Invalid companion state '${status || "(empty)"}'. Allowed states: ${pack.manifest.markers.states.join(", ") || "(none)"}.` }],
+              isError: true,
+              details: { allowedStates: pack.manifest.markers.states },
+            };
+          }
+
+          try {
+            setAppState("secretary.status", status);
+          } catch (error) {
+            logWarn(`[pi] Failed to persist secretary.status=${status}:`, error);
+          }
+          emit({ type: "avatar_status", status, reason: params.reason });
+          return {
+            content: [{ type: "text", text: `Companion state changed to ${status}.` }],
+            details: { status, reason: params.reason },
+          };
+        },
+      }),
+      ...toolConfigs
+        .filter(({ capability }) => isCompanionPackCapabilityEnabled(pack, capability))
+        .map(({ config }) => createResourceScriptTool(pi, workspaceDir, config)),
+    ];
 
     if (process.env.AI_SECRETARY_ENABLE_DEBUG_SQL_TOOL === "1" && isCompanionPackCapabilityEnabled(pack, "memory")) {
       tools.push(createResourceScriptTool(pi, workspaceDir, {
@@ -518,7 +552,7 @@ function createPiClient(): AgentClientInstance {
     const websearchInstruction = runtimeEnabledTools.includes("websearch")
       ? "\n\nWeb search/scrape is currently available. Use it for current or online information. Good examples include weather, stocks/market prices, recent news, current product details, documentation, local businesses/hours, release notes, and factual claims likely to have changed."
       : "";
-    return `# Active companion pack\n\n- id: ${pack.manifest.id}\n- name: ${pack.manifest.name}\n- default state: ${pack.manifest.sprites.defaultStatus}\n- allowed [state:*] markers: ${states || "(none)"}\n- allowed [anim:*] markers: ${anims || "(none)"}\n- pack-supported capabilities: ${packEnabledCapabilities.join(", ") || "(none)"}\n- currently available tools/capabilities: ${runtimeEnabledTools.join(", ") || "(none)"}\n- currently unavailable tools/capabilities: ${runtimeDisabledTools.join(", ") || "(none)"}\n\nOnly emit [state:*] and [anim:*] markers declared by the active companion pack. Only use tools and behaviors listed as currently available.${websearchInstruction}`;
+    return `# Active companion pack\n\n- id: ${pack.manifest.id}\n- name: ${pack.manifest.name}\n- default state: ${pack.manifest.sprites.defaultStatus}\n- allowed companion states/statuses: ${states || "(none)"}\n- allowed [anim:*] markers: ${anims || "(none)"}\n- pack-supported capabilities: ${packEnabledCapabilities.join(", ") || "(none)"}\n- currently available tools/capabilities: ${runtimeEnabledTools.join(", ") || "(none)"}\n- currently unavailable tools/capabilities: ${runtimeDisabledTools.join(", ") || "(none)"}\n\nUse the companion_set_state tool for persistent companion state/status changes. Do not emit [state:*] markers. Only emit [anim:*] markers declared by the active companion pack. Only use tools and behaviors listed as currently available.${websearchInstruction}`;
   }
 
   async function ensureLocalPiFiles(agentDir: string): Promise<void> {

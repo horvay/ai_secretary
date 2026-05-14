@@ -72,7 +72,11 @@ function getPlacementDisplays() {
 function applyCompanionPlacement(placement = loadCompanionPlacement()) {
   if (!mainWindow) return;
   const bounds = getCompanionBounds(placement);
-  mainWindow.setBounds(bounds, true);
+  // Do not ask Electron/WM to animate this resize. When the companion expands
+  // or collapses, its x/y and width/height change together to preserve the
+  // chosen corner. Native bounds animation interpolates those values and makes
+  // Ari appear to bounce around before landing back in place.
+  mainWindow.setBounds(bounds, false);
   applyHyprlandFloatingFix();
 }
 
@@ -178,7 +182,7 @@ function applyHyprlandFloatingFix() {
   if (!process.env.HYPRLAND_INSTANCE_SIGNATURE || !mainWindow) return;
 
   const bounds = getCompanionBounds(loadCompanionPlacement());
-  mainWindow.setBounds(bounds, true);
+  mainWindow.setBounds(bounds, false);
 
   const matcher = findHyprlandWindowMatcher();
   const batch = [
@@ -194,14 +198,15 @@ function applyHyprlandFloatingFix() {
     const decorationRules = [
       "no_blur on, match:title ^(AI Secretary)$",
       "border_size 0, match:title ^(AI Secretary)$",
-      "nofollowmouse on, match:title ^(AI Secretary)$",
+      "no_follow_mouse on, match:title ^(AI Secretary)$",
+      "no_anim on, match:title ^(AI Secretary)$",
     ];
     for (const rule of decorationRules) {
       const ruleResult = spawnSync("hyprctl", ["keyword", "windowrule", rule], { encoding: "utf8" });
       if (ruleResult.status !== 0) console.warn(`[electron] hyprctl decoration rule failed (${rule}):`, ruleResult.stderr || ruleResult.stdout);
     }
 
-    mainWindow.setBounds(bounds, true);
+    mainWindow.setBounds(bounds, false);
   } catch (error) {
     console.warn("[electron] hyprctl floating fix unavailable:", error);
   }

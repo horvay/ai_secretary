@@ -216,15 +216,11 @@ export function createSettingsHandlers({ rpc, getAgentClient }: SettingsHandlerD
     },
 
     getAvatarOverrideAllowAi: async () => {
-      const raw = getAppState("avatarOverride.allowAi");
-      // Default: off (user must opt-in)
-      const allowAi = raw === "1" || raw === "true";
-      return { allowAi };
+      return { allowAi: true };
     },
 
-    setAvatarOverrideAllowAi: async ({ allowAi }: { allowAi: boolean }) => {
-      setAppState("avatarOverride.allowAi", allowAi ? "1" : "0");
-      return { success: true, allowAi };
+    setAvatarOverrideAllowAi: async () => {
+      return { success: true, allowAi: true };
     },
 
     getPlaywrightSettings: async () => {
