@@ -152,6 +152,7 @@ export function createMessageHistoryModal(
   const currentSessionList = element.querySelector("#current-session-list") as HTMLElement;
   const closeButton = element.querySelector(".modal-close") as HTMLElement;
   const tabButtons = element.querySelectorAll(".tab-button") as NodeListOf<HTMLButtonElement>;
+  const tabSelect = element.querySelector(".modal-tab-select") as HTMLSelectElement | null;
   const tabContents = element.querySelectorAll(".tab-content") as NodeListOf<HTMLElement>;
 
   if (!messageList) {
@@ -184,43 +185,46 @@ export function createMessageHistoryModal(
 
   let currentTab = "history";
 
+  function switchTab(tabName: string): void {
+    tabButtons.forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === tabName));
+
+    if (tabSelect && tabSelect.value !== tabName) {
+      tabSelect.value = tabName;
+    }
+
+    tabContents.forEach((content) => {
+      content.classList.toggle("active", content.id === `tab-${tabName}`);
+    });
+
+    currentTab = tabName;
+
+    if (tabName === "history") {
+      loadMessages();
+    } else if (tabName === "routines") {
+      loadRoutines();
+    } else if (tabName === "lists") {
+      loadLists();
+    } else if (tabName === "transcripts") {
+      loadTranscripts();
+    } else if (tabName === "tasks") {
+      loadTasks();
+    } else if (tabName === "reminders") {
+      loadReminders();
+    } else if (tabName === "current-session") {
+      loadCurrentSessionHistory();
+    }
+  }
+
   // Tab switching logic
   tabButtons.forEach((button) => {
     button.addEventListener("click", () => {
       const tabName = button.dataset.tab;
-      if (!tabName) return;
-
-      // Update active tab button
-      tabButtons.forEach((btn) => btn.classList.remove("active"));
-      button.classList.add("active");
-
-      // Update active tab content
-      tabContents.forEach((content) => {
-        content.classList.remove("active");
-        if (content.id === `tab-${tabName}`) {
-          content.classList.add("active");
-        }
-      });
-
-      currentTab = tabName;
-
-      // Load tab content
-      if (tabName === "history") {
-        loadMessages();
-      } else if (tabName === "routines") {
-        loadRoutines();
-      } else if (tabName === "lists") {
-        loadLists();
-      } else if (tabName === "transcripts") {
-        loadTranscripts();
-      } else if (tabName === "tasks") {
-        loadTasks();
-      } else if (tabName === "reminders") {
-        loadReminders();
-      } else if (tabName === "current-session") {
-        loadCurrentSessionHistory();
-      }
+      if (tabName) switchTab(tabName);
     });
+  });
+
+  tabSelect?.addEventListener("change", () => {
+    switchTab(tabSelect.value);
   });
 
   // Close button handler

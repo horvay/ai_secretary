@@ -1721,20 +1721,20 @@ body:has(#top-right-controls:hover) #hamburger-button,
 /* Message History Modal - Full Screen with clickable edge */
 #message-history-modal {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(15, 12, 41, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: oklch(14% 0.045 292 / 0.78);
+  backdrop-filter: blur(10px) saturate(0.9);
+  -webkit-backdrop-filter: blur(10px) saturate(0.9);
   z-index: 3000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
   -webkit-app-region: no-drag;
   animation: fadeIn 0.2s ease;
+  box-sizing: border-box;
 }
 
 #message-history-modal.hidden {
@@ -1742,27 +1742,30 @@ body:has(#top-right-controls:hover) #hamburger-button,
 }
 
 #message-history-modal > .modal-wrapper {
-  width: 100%;
-  height: 100%;
-  max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 40px);
-  background: rgba(15, 12, 41, 0.95);
-  border-radius: 16px;
-  border: 1px solid var(--border-accent);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  width: min(720px, 100%);
+  height: min(680px, 100%);
+  max-width: 100%;
+  max-height: 100%;
+  background: linear-gradient(180deg, oklch(18% 0.052 292 / 0.98), oklch(14% 0.044 292 / 0.985));
+  border-radius: 18px;
+  border: 1px solid oklch(72% 0.12 315 / 0.32);
+  box-shadow: 0 24px 70px oklch(8% 0.03 292 / 0.72), 0 0 0 1px oklch(90% 0.04 315 / 0.05) inset;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 #message-history-modal .modal-header {
-  padding: 20px 30px;
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
+  padding: 12px;
+  border-bottom: 1px solid oklch(70% 0.08 292 / 0.18);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
   align-items: center;
-  justify-content: space-between;
-  background: rgba(15, 12, 41, 0.8);
+  background: oklch(17% 0.05 292 / 0.94);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 #message-history-modal .modal-header h2 {
@@ -1795,7 +1798,7 @@ body:has(#top-right-controls:hover) #hamburger-button,
 #message-history-modal .modal-content {
   flex: 1;
   overflow: hidden;
-  padding: 20px 30px;
+  padding: 14px;
   width: 100%;
   max-width: none;
   min-height: 0;
@@ -2099,31 +2102,84 @@ body:has(#top-right-controls:hover) #hamburger-button,
    ============================================ */
 
 .modal-tabs {
-  display: flex;
+  display: none;
   gap: 8px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.modal-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.modal-tab-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.modal-tab-picker span {
+  color: oklch(76% 0.05 292);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.modal-tab-select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid oklch(78% 0.11 315 / 0.34);
+  border-radius: 12px;
+  background: oklch(23% 0.055 292 / 0.96);
+  color: oklch(96% 0.018 292);
+  padding: 0 38px 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 750;
+  outline: none;
+}
+
+.modal-tab-select:focus-visible {
+  border-color: oklch(82% 0.13 202 / 0.74);
+  box-shadow: 0 0 0 3px oklch(82% 0.13 202 / 0.16);
 }
 
 .tab-button {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #e5dbf6;
-  font-size: 14px;
+  flex: 0 0 auto;
+  background: oklch(24% 0.055 292 / 0.7);
+  border: 1px solid oklch(72% 0.08 292 / 0.2);
+  color: oklch(88% 0.035 292);
+  font-size: 13px;
   font-weight: 700;
-  padding: 10px 18px;
+  padding: 9px 14px;
   cursor: pointer;
-  border-radius: 10px;
-  transition: all 0.2s ease;
+  border-radius: 11px;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  white-space: nowrap;
 }
 
 .tab-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  background: oklch(29% 0.065 292 / 0.82);
+  border-color: oklch(78% 0.11 315 / 0.34);
+  color: oklch(96% 0.018 292);
+}
+
+.tab-button:focus-visible {
+  outline: none;
+  border-color: oklch(82% 0.13 202 / 0.74);
+  box-shadow: 0 0 0 3px oklch(82% 0.13 202 / 0.16);
 }
 
 .tab-button.active {
-  background: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-pink) 100%);
-  color: white;
-  box-shadow: 0 2px 8px rgba(197, 108, 240, 0.3);
+  background: linear-gradient(135deg, oklch(63% 0.17 315), oklch(68% 0.16 344));
+  color: oklch(98% 0.01 315);
+  border-color: oklch(78% 0.13 330 / 0.52);
+  box-shadow: 0 8px 20px oklch(58% 0.17 330 / 0.24);
 }
 
 #message-history-modal .tab-content {
@@ -2139,7 +2195,9 @@ body:has(#top-right-controls:hover) #hamburger-button,
   width: 100%;
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
+  padding-right: 4px;
 }
 
 #message-history-modal #tab-routines.active,
@@ -2153,6 +2211,16 @@ body:has(#top-right-controls:hover) #hamburger-button,
 #message-history-modal .current-session-subtle {
   color: var(--text-muted);
   font-size: 12px;
+}
+
+@media (min-width: 680px) {
+  .modal-tabs {
+    display: flex;
+  }
+
+  .modal-tab-picker {
+    display: none;
+  }
 }
 
 /* ============================================
