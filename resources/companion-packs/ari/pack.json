@@ -1,0 +1,36 @@
+{
+  "id": "ari",
+  "name": "Ari",
+  "version": "1.0.0",
+  "description": "Cute cat-girl secretary default companion pack",
+  "persona": "./persona.md",
+  "sprites": {
+    "standardDir": "./assets/sprites/standard",
+    "oneTimeDir": "./assets/sprites/one-time",
+    "defaultStatus": "normal"
+  },
+  "markers": {
+    "states": [
+      "normal"
+    ],
+    "animations": [
+      "yawn",
+      "dance"
+    ]
+  },
+  "capabilities": {
+    "memory": true,
+    "reminders": true,
+    "lists": true,
+    "routines": true,
+    "screenshots": true,
+    "playwright": true,
+    "websearch": true
+  },
+  "model": {
+    "providerID": "opencode",
+    "modelID": "big-pickle"
+  },
+  "skillsDir": "./skills",
+  "extensionsDir": "./extensions"
+}

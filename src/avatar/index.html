@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Secretary</title>
+    <link rel="stylesheet" href="views://avatar/index.css">
+    <link rel="stylesheet" href="views://avatar/agent-activity.css">
+</head>
+<body>
+    <div id="app">
+        <div id="app-chrome" class="app-chrome">
+            <div class="brand-mark">Ari</div>
+            <div class="brand-subtitle">desktop companion</div>
+            <div id="audio-hint" class="audio-hint" data-tone="ready">Listening ready</div>
+        </div>
+        <div id="user-question-label" class="user-question-label hidden"></div>
+        <div id="chat-bubble" class="chat-bubble hidden"></div>
+        <div id="top-right-controls">
+            <div id="research-button" class="research-button" title="Agent activity">
+                <span class="research-icon">✦</span>
+            </div>
+            <div id="mute-button" class="mute-button" title="Mute Ari">
+                <span class="mute-icon">🔊</span>
+                <div class="volume-popover" aria-label="Volume">
+                    <input
+                        id="volume-slider"
+                        class="volume-slider"
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value="100"
+                        aria-label="Volume slider"
+                    />
+                </div>
+            </div>
+            <div id="microphone-indicator" class="microphone-indicator off" title="Microphone listening">
+                <span class="mic-icon">♪</span>
+            </div>
+        </div>
+        <div id="avatar-container">
+            <canvas id="avatar-canvas" class="avatar-state-idle" width="264" height="384"></canvas>
+            <div id="status-indicator" class="status-indicator">
+                <span class="status-icon">💤</span>
+                <span class="status-text">Idle</span>
+            </div>
+        </div>
+        <div id="input-modal" class="input-modal hidden">
+            <div class="modal-content">
+                <input type="text" id="question-input" placeholder="Ask me anything..." />
+                <div class="modal-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="include-screenshot" />
+                        <span>Include screenshot</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="active-window-only" />
+                        <span>Active window only</span>
+                    </label>
+                </div>
+                <div class="modal-actions">
+                    <button id="send-btn">Send</button>
+                    <button id="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+        <div id="toast-container"></div>
+        <button id="hamburger-button" title="Message History">
+            <div class="hamburger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </button>
+    </div>
+    <div id="message-history-modal" class="hidden">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-tabs">
+                    <button class="tab-button active" data-tab="history">History</button>
+                    <button class="tab-button" data-tab="current-session">Current Session</button>
+                    <button class="tab-button" data-tab="routines">Routines</button>
+                    <button class="tab-button" data-tab="lists">Lists</button>
+                    <button class="tab-button" data-tab="transcripts">Transcripts</button>
+                    <button class="tab-button" data-tab="tasks">Tasks</button>
+                    <button class="tab-button" data-tab="reminders">Reminders</button>
+                </div>
+                <button class="modal-close" title="Close">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="tab-content active" id="tab-history">
+                    <div class="message-list" id="message-list">
+                        <div class="message-empty">Loading messages...</div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-current-session">
+                    <div class="message-list" id="current-session-list">
+                        <div class="message-empty">Loading current conversation session...</div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-routines">
+                    <div class="routines-list" id="routines-list">
+                        <div class="message-empty">Loading routines...</div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-lists">
+                    <div class="lists-container" id="lists-container">
+                        <div class="message-empty">Loading lists...</div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-transcripts">
+                    <div class="transcripts-panel">
+                        <div class="transcripts-toolbar">
+                            <input id="transcript-search-input" class="transcript-search-input" type="search" placeholder="Search heard or spoken transcripts…" />
+                            <select id="transcript-source-filter" class="transcript-source-filter">
+                                <option value="all">All sources</option>
+                                <option value="microphone">Microphone</option>
+                                <option value="speaker">Speaker</option>
+                            </select>
+                            <button id="transcript-refresh-btn" class="transcript-refresh-btn">Refresh</button>
+                        </div>
+                        <div class="transcripts-list" id="transcripts-list">
+                            <div class="message-empty">Loading transcripts...</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-tasks">
+                    <div class="reminders-list" id="tasks-list">
+                        <div class="message-empty">Loading tasks...</div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-reminders">
+                    <div class="reminders-list" id="reminders-list">
+                        <div class="message-empty">Loading reminders...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="agent-activity-modal" class="fullscreen-modal hidden">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-tabs">
+                    <button class="tab-button active" data-tab="activity">🧾 Agent Activity</button>
+                </div>
+                <div class="modal-header-actions">
+                    <button id="agent-activity-copy" class="modal-action-btn" title="Copy to clipboard">📋</button>
+                    <button id="agent-activity-clear" class="modal-action-btn" title="Clear">🗑️</button>
+                    <button class="modal-close" title="Close">×</button>
+                </div>
+            </div>
+            <div class="modal-content">
+                <div class="tab-content active" id="tab-activity">
+                    <div class="agent-activity-panel">
+                        <div id="agent-activity-list" class="agent-activity-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="settings-modal" class="fullscreen-modal hidden">
+        <div class="modal-wrapper">
+            <div class="modal-header">
+                <div class="modal-tabs">
+                    <button class="tab-button active" data-tab="settings">⚙️ Settings</button>
+                    <button class="tab-button" data-tab="debug">🔧 Debug</button>
+                </div>
+                <button class="modal-close" title="Close">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="tab-content active" id="tab-settings">
+                    <div class="settings-panel">
+                        <div class="settings-group settings-group-compact">
+                            <h3>🖥️ Companion overlay</h3>
+                            <div class="setting-field">
+                                <label for="settings-companion-monitor">Monitor</label>
+                                <select id="settings-companion-monitor" class="settings-select"></select>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-companion-corner">Corner</label>
+                                <select id="settings-companion-corner" class="settings-select">
+                                    <option value="bottom-right">Bottom right</option>
+                                    <option value="bottom-left">Bottom left</option>
+                                    <option value="top-right">Top right</option>
+                                    <option value="top-left">Top left</option>
+                                </select>
+                            </div>
+                            <p class="setting-hint">Saved locally and applied every time Ari starts.</p>
+                        </div>
+                        <div class="settings-group settings-group-compact">
+                            <h3>⏰ Reminders</h3>
+                            <div class="setting-field">
+                                <label>Check interval</label>
+                                <div class="custom-dropdown" id="settings-reminder-dropdown">
+                                    <button class="dropdown-toggle" type="button">
+                                        <span class="dropdown-value">1 hour</span>
+                                        <span class="dropdown-arrow">▼</span>
+                                    </button>
+                                    <div class="dropdown-menu hidden">
+                                        <div class="dropdown-item" data-value="5">5 minutes</div>
+                                        <div class="dropdown-item" data-value="15">15 minutes</div>
+                                        <div class="dropdown-item" data-value="30">30 minutes</div>
+                                        <div class="dropdown-item selected" data-value="60">1 hour</div>
+                                        <div class="dropdown-item" data-value="120">2 hours</div>
+                                        <div class="dropdown-item" data-value="240">4 hours</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="setting-hint">How often Ari checks for pending routines and reminders.</p>
+                        </div>
+                        <div class="settings-group settings-group-compact">
+                            <h3>🧠 Memory & Privacy</h3>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Enable memory</label>
+                                    <p class="setting-hint">Turns durable memory on or off for conversations and memory tools.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-memory-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Log conversations</label>
+                                    <p class="setting-hint">Store text, voice, and context turns in the local memory DB.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-memory-conversations">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Log screenshots</label>
+                                    <p class="setting-hint">Persist screenshot metadata and OCR instead of only using screenshots transiently.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-memory-screenshots">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Allow OCR persistence</label>
+                                    <p class="setting-hint">Keep OCR text in memory exports and screenshot records.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-memory-ocr">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Profile learning</label>
+                                    <p class="setting-hint">Allows summaries/reconciliation to write learned facts into <code>user_profile.md</code>.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-memory-profile-learning">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-memory-retention">Retention (days)</label>
+                                <input type="number" id="settings-memory-retention" class="dropdown-toggle" style="cursor: text;" min="1" step="1" placeholder="Keep forever" />
+                                <p class="setting-hint">Leave empty to keep history forever. Old conversation rows are purged on startup.</p>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-memory-redacted-terms">Always redact these terms</label>
+                                <input type="text" id="settings-memory-redacted-terms" class="dropdown-toggle" style="cursor: text;" placeholder="comma,separated,secrets" />
+                                <p class="setting-hint">Exact terms that should be redacted from future stored/exported memory.</p>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="settings-memory-save" class="setting-btn secondary">💾 Save memory settings</button>
+                            </div>
+                        </div>
+                        <div class="settings-group settings-group-compact">
+                            <h3>🧳 Companion Pack</h3>
+                            <div class="setting-field">
+                                <label for="settings-companion-pack">Active pack</label>
+                                <select id="settings-companion-pack" class="settings-select"></select>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="settings-companion-pack-refresh" class="setting-btn secondary">🔄 Refresh packs</button>
+                            </div>
+                            <div class="setting-chip-row">
+                                <span class="setting-status-pill" id="settings-companion-pack-status">Loading companion packs…</span>
+                            </div>
+                            <ul class="setting-bullet-list">
+                                <li>Switching packs starts a fresh chat session.</li>
+                                <li>Visual assets are bundled inside each companion pack.</li>
+                                <li>Custom project packs live in <code>packs/&lt;pack-id&gt;/</code>.</li>
+                            </ul>
+                        </div>
+                        <div class="settings-group settings-group-compact">
+                            <h3>🎭 One-shot Overrides</h3>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label title="When enabled, Ari can trigger one-shot override animations via the avatar_override tool.">Allow AI-triggered overrides</label>
+                                    <p class="setting-hint">Lets Ari trigger declared one-shot animations during chat. Manual preview stays available.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-allow-ai-overrides">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-override-key">Preview override key</label>
+                                <div class="setting-inline-controls setting-preview-controls">
+                                    <input type="text" id="settings-override-key" class="dropdown-toggle" style="cursor: text;" placeholder="happy" />
+                                    <button id="settings-play-override" class="setting-btn secondary">▶ Play once</button>
+                                </div>
+                            </div>
+                            <details class="settings-advanced-details settings-compact-details">
+                                <summary>Show path details</summary>
+                                <p class="setting-hint">Use the active pack’s <code>assets/sprites/one-time/&lt;key&gt;/</code>. Folder names must match declared <code>[anim:key]</code> markers.</p>
+                            </details>
+                        </div>
+                        <div class="settings-group settings-group-compact settings-agent-group">
+                            <h3>🧠 Agent</h3>
+                            <div class="settings-agent-field-grid">
+                                <div class="setting-field">
+                                    <label for="settings-agent-provider">Provider</label>
+                                    <select id="settings-agent-provider" class="settings-select"></select>
+                                </div>
+                                <div class="setting-field">
+                                    <label for="settings-agent-model">Model</label>
+                                    <select id="settings-agent-model" class="settings-select"></select>
+                                </div>
+                                <div class="setting-field">
+                                    <label for="settings-thinking-dropdown">Thinking level</label>
+                                    <div class="custom-dropdown" id="settings-thinking-dropdown">
+                                        <button class="dropdown-toggle" type="button">
+                                            <span class="dropdown-value">minimal</span>
+                                            <span class="dropdown-arrow">▼</span>
+                                        </button>
+                                        <div class="dropdown-menu hidden">
+                                            <div class="dropdown-item" data-value="none">none (fastest)</div>
+                                            <div class="dropdown-item selected" data-value="minimal">minimal</div>
+                                            <div class="dropdown-item" data-value="low">low</div>
+                                            <div class="dropdown-item" data-value="medium">medium</div>
+                                            <div class="dropdown-item" data-value="high">high</div>
+                                            <div class="dropdown-item" data-value="xhigh">xhigh (deep thinking)</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="setting-field">
+                                    <label for="settings-agent-auth-method">Auth method</label>
+                                    <select id="settings-agent-auth-method" class="settings-select"></select>
+                                </div>
+                                <div class="setting-field settings-agent-api-field">
+                                    <label for="settings-agent-api-key">API key</label>
+                                    <input type="password" id="settings-agent-api-key" class="dropdown-toggle" style="cursor: text;" placeholder="Paste API key (if needed)" />
+                                </div>
+                            </div>
+                            <div class="setting-action-grid">
+                                <button id="settings-agent-save-key" class="setting-btn secondary">💾 Save API key</button>
+                                <button id="settings-agent-oauth-login" class="setting-btn primary">🔐 Login (OAuth)</button>
+                                <button id="settings-agent-refresh" class="setting-btn secondary">🔄 Refresh providers/models</button>
+                                <button id="settings-agent-clear-session" class="setting-btn secondary">🧹 Clear conversation (new session)</button>
+                            </div>
+                            <p class="setting-hint" id="settings-agent-status">Loading agent status…</p>
+                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated">
+                                <div>
+                                    <label>Browser automation</label>
+                                    <p class="setting-hint">Off by default. Turning this on downloads a managed Chromium binary for your platform so Ari can use Playwright browser tools.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-playwright-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p class="setting-hint" id="settings-playwright-status">Browser automation is off.</p>
+                            <div class="setting-row setting-row-compact setting-row-with-copy setting-field-separated">
+                                <div>
+                                    <label>Web search API</label>
+                                    <p class="setting-hint">Off by default. Enable Firecrawl-powered web search/scrape tools for Ari and enter your Firecrawl API key.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-firecrawl-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-field settings-firecrawl-api-field">
+                                <label for="settings-firecrawl-api-key">Firecrawl API key</label>
+                                <input type="password" id="settings-firecrawl-api-key" class="settings-input" placeholder="fc-..." autocomplete="off">
+                            </div>
+                            <button id="settings-firecrawl-save" class="setting-btn secondary">💾 Save Firecrawl settings</button>
+                            <p class="setting-hint" id="settings-firecrawl-status">Web search is off.</p>
+                        </div>
+                        <div class="settings-group settings-group-compact">
+                            <h3>🦙 Local voice JSON model</h3>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Enable reasoning</label>
+                                    <p class="setting-hint">Use local model thinking for the JSON voice decision pass.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-local-reasoning-enabled" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-local-reasoning-budget">Reasoning token budget</label>
+                                <input type="number" id="settings-local-reasoning-budget" class="dropdown-toggle" style="cursor: text;" min="1" max="8192" step="1" value="500" />
+                                <p class="setting-hint">Default: 500. Applied next time the local llama.cpp test client starts.</p>
+                            </div>
+                            <div class="setting-field setting-field-separated">
+                                <label for="settings-local-context-size">Context size</label>
+                                <input type="number" id="settings-local-context-size" class="dropdown-toggle" style="cursor: text;" min="4096" max="262144" step="1024" value="65536" />
+                                <p class="setting-hint">Default: 65536. Larger values use more VRAM.</p>
+                            </div>
+                            <div class="setting-actions">
+                                <button id="settings-local-model-save" class="setting-btn secondary">💾 Save local model settings</button>
+                            </div>
+                        </div>
+                        <div class="settings-group">
+                            <h3>🎤 Interaction</h3>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Send microphone speech to Ari</label>
+                                    <p class="setting-hint">When off, microphone speech is still transcribed into the local transcript log, but Ari will not answer it.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-mic-send-to-ai" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row setting-row-compact setting-row-with-copy">
+                                <div>
+                                    <label>Transcribe speaker audio</label>
+                                    <p class="setting-hint">Off by default. When enabled, Linux system audio is saved to transcripts and can be searched later.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-speaker-transcription-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div class="setting-row">
+                                <label title="When enabled, Ari will not play any sound">Mute Ari:</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-mute-enabled">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p class="setting-hint">Disable sound playback. Ari will still respond with text and animations.</p>
+                            <p class="setting-hint" style="margin-top: 8px;">To interrupt Ari while she's talking:</p>
+                            <ul class="setting-hint" style="margin: 8px 0 8px 20px; color: var(--text-color);">
+                                <li>Press <kbd style="background: var(--bg-color); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-color);">Escape</kbd></li>
+                                <li>Click the <strong>Skip</strong> button in the chat bubble</li>
+                            </ul>
+                            <!-- Voice barge-in disabled for now - too unreliable with TTS pickup
+                            <div class="setting-row">
+                                <label title="When enabled, speaking for a few seconds while Ari is talking will interrupt her response">Enable barge-in:</label>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="settings-barge-in-enabled" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p class="setting-hint">Automatically stop Ari when you start talking during her response.</p>
+                            <div class="setting-row" id="barge-in-threshold-row">
+                                <label title="How long you need to speak before Ari stops talking (prevents accidental interrupts)">Threshold:</label>
+                                <div class="slider-container">
+                                    <input type="range" id="settings-barge-in-threshold" min="1" max="10" value="5" step="1">
+                                    <span id="barge-in-threshold-value" class="slider-value">5s</span>
+                                </div>
+                            </div>
+                            <p class="setting-hint">How many seconds of speech before Ari is interrupted.</p>
+                            -->
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-content" id="tab-debug">
+                    <div class="debug-panel-content">
+                        <div class="settings-group">
+                            <h3>📊 Memory Stats</h3>
+                            <div class="debug-stats">
+                                <div class="stat-row"><span>Total Interactions</span><span id="debug-stat-total">-</span></div>
+                                <div class="stat-row"><span>Today's Interactions</span><span id="debug-stat-today">-</span></div>
+                                <div class="stat-row"><span>Screenshots</span><span id="debug-stat-screenshots">-</span></div>
+                                <div class="stat-row"><span>Daily Summaries</span><span id="debug-stat-summaries">-</span></div>
+                                <div class="stat-row"><span>Profile</span><span id="debug-stat-profile">-</span></div>
+                            </div>
+                            <button id="debug-refresh-stats" class="setting-btn secondary">🔄 Refresh Stats</button>
+                        </div>
+                        <div class="settings-group">
+                            <h3>⚡ Actions</h3>
+                            <button id="debug-trigger-summary" class="setting-btn primary">📝 Trigger Daily Summary</button>
+                            <button id="debug-reconcile-profile" class="setting-btn primary">🧠 Reconcile Profile</button>
+                            <button id="debug-export-data" class="setting-btn secondary">📦 Export Memory Data</button>
+                            <button id="debug-forget-last-turn" class="setting-btn secondary">🧼 Forget Last Turn</button>
+                            <button id="debug-clear-memory" class="setting-btn danger">🗑️ Clear All Memory</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="views://avatar/index.js"></script>
+</body>
+</html>
+

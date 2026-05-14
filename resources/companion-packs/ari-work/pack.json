@@ -1,0 +1,31 @@
+{
+  "id": "ari-work",
+  "name": "Ari Workmode",
+  "version": "1.0.0",
+  "description": "Focused, work-first Ari pack with a calmer tone and limited tool surface",
+  "persona": "./persona.md",
+  "sprites": {
+    "standardDir": "./assets/sprites/standard",
+    "oneTimeDir": "./assets/sprites/one-time",
+    "defaultStatus": "normal"
+  },
+  "markers": {
+    "states": ["normal"],
+    "animations": ["yawn", "dance"]
+  },
+  "capabilities": {
+    "memory": true,
+    "reminders": true,
+    "lists": false,
+    "routines": false,
+    "screenshots": false,
+    "playwright": false,
+    "websearch": true
+  },
+  "model": {
+    "providerID": "opencode",
+    "modelID": "big-pickle"
+  },
+  "skillsDir": "./skills",
+  "extensionsDir": "./extensions"
+}

@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "bunx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--headless",
+        "--user-data-dir=.playwright-mcp"
+      ]
+    },
+    "playwright-electron": {
+      "command": "bun",
+      "args": [
+        "run",
+        "tools/mcp-playwright-electron.ts"
+      ],
+      "env": {
+        "DISPLAY": ":1",
+        "WAYLAND_DISPLAY": "wayland-1",
+        "XDG_SESSION_TYPE": "wayland",
+        "XDG_RUNTIME_DIR": "/run/user/1000",
+        "ELECTRON_OZONE_PLATFORM_HINT": "wayland",
+        "OZONE_PLATFORM": "wayland",
+        "GDK_BACKEND": "wayland,x11,*",
+        "LIBGL_ALWAYS_SOFTWARE": "1",
+        "MESA_LOADER_DRIVER_OVERRIDE": "llvmpipe"
+      }
+    }
+  }
+}

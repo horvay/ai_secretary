@@ -1,0 +1,36 @@
+{
+  "name": "ai-secretary",
+  "version": "0.0.1",
+  "description": "Cute avatar AI companion desktop app",
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/build-electron.ts",
+    "build:electron": "bun scripts/build-electron.ts",
+    "start": "bun scripts/start.ts",
+    "start:electron": "bun run build:electron && electron build/electron/main.cjs",
+    "check": "bunx tsc --noEmit",
+    "test": "bun test",
+    "mcp:playwright-electron": "bun tools/mcp-playwright-electron.ts"
+  },
+  "bin": {
+    "ai-secretary": "./ai-secretary"
+  },
+  "dependencies": {
+    "@mariozechner/pi-ai": "^0.72.1",
+    "@mariozechner/pi-coding-agent": "^0.72.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@playwright/mcp": "^0.0.75",
+    "active-win": "^9.0.0",
+    "playwright": "^1.60.0",
+    "html2canvas": "^1.4.1",
+    "mime-types": "^3.0.2",
+    "node-screenshots": "^0.2.1",
+    "parakeet.js": "^0.0.3",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.13",
+    "electron": "^42.0.0",
+    "typescript": "^6.0.3"
+  }
+}
